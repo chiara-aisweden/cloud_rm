@@ -240,7 +240,7 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
             sys.stdout.flush()
         
         noise=torch.randn(X.shape,device=device)
-        means=torch.mean(X,dim=0)*0.03
+        means=torch.mean(X,dim=0)*0.02
         noise=noise*means.repeat((len(noise[:,0]),1))
         tX=X+noise
         if data_norm:
