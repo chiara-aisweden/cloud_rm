@@ -64,12 +64,13 @@ class QuantileNetwork():
         else:
             self.device=torch.device('cpu')
 
-    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,noise_ratio=0.03,early_break=False):
+    def fit(self, X, y, train_indices, validation_indices, sequence, batch_size=500, nepochs=1000,lr=0.001,noise_ratio=0.03,early_break=True,clear_noise=False,clear_indices=np.array([])):
         self.model,self.train_loss,self.val_loss = fit_quantiles(X, y, train_indices, validation_indices,
                                                                   quantiles=self.quantiles, batch_size=batch_size, 
                                                                   sequence=sequence, n_epochs=nepochs,
                                                                   device=self.device,lr=lr,noise_ratio=noise_ratio,
-                                                                  early_break=early_break)
+                                                                  early_break=early_break, clear_noise=clear_noise,
+                                                                  clear_indices=clear_indices)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -133,7 +134,7 @@ class QuantileNetwork():
 
         return loss/(np.shape(y_true)[0])
 
-def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,noise_ratio, early_break,
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,noise_ratio, early_break, clear_noise, clear_indices,
                   loss='quantile',file_checkpoints=True,device=torch.device('cuda')):
     #Find variables for use in QuantileNetworkMM
     n_out=len(quantiles)
@@ -193,8 +194,14 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         sys.stdout.flush()
 
 
-        #Add noise to tX
-        tX_noisy = tX + torch.randn(tX.shape) * torch.mean(tX,dim=0)*noise_ratio
+        #Add noise to tX, if clear_noise = False, do not add noise to clear data
+        if clear_noise:
+            tX_noise = torch.randn(tX.shape) * torch.mean(tX,dim=0)*noise_ratio
+        else:
+            tX_noise = torch.randn(tX.shape) * torch.mean(tX,dim=0)*noise_ratio
+            tX_noise[clear_indices,:]=0
+
+        tX_noisy = tX + tX_noise 
 
         #Then normalize tX_noisy
         tX_n_mean = torch.mean(tX_noisy,0)
