@@ -17,10 +17,10 @@ def parse(file_name):
 def synth_dataloader(path_name='SMHIdata',drop_cols = True):
        #Set path_name to path containing data sets, ensure file names are as below
        #load all data
-       data_water=parse(os.path.join(path_name, 'cloudrm2_water.dat'))
-       data_clear=parse(os.path.join(path_name, 'cloudrm2_clear.dat'))
-       data_ice=parse(os.path.join(path_name, 'cloudrm2_ice.dat'))
-       data_mixed=parse(os.path.join(path_name, 'cloudrm2_mixed.dat'))
+       data_water=parse(os.path.join(path_name, 'cloudrm_water.dat'))
+       data_clear=parse(os.path.join(path_name, 'cloudrm_clear.dat'))
+       data_ice=parse(os.path.join(path_name, 'cloudrm_ice.dat'))
+       data_mixed=parse(os.path.join(path_name, 'cloudrm_mixed.dat'))
 
        #Concatenate all datasets, drop unnecessary cols and reset index
        df=pd.concat([data_water,data_clear,data_ice,data_mixed])
