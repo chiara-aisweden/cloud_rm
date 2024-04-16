@@ -57,7 +57,12 @@ class QuantileNetworkMM(nn.Module):
         self.eval()
         self.zero_grad()
         if self.data_norm:
-            tX=torch.tensor((x - self.X_means) / self.X_stds,dtype=torch.float,device=self.device)
+
+            means=torch.tensor(self.X_means[:,0:13],dtype=torch.float,device=self.device)
+            stds=torch.tensor(self.X_stds[:,0:13],dtype=torch.float,device=self.device)
+
+            tX=torch.tensor(x,dtype=torch.float,device=self.device)
+            tX[:,0:13]=torch.tensor((tX[:,0:13] - means) / stds,dtype=torch.float,device=self.device)
             norm_out = self.forward(tX)
             out = norm_out.data.cpu() * self.y_std[...,None] + self.y_mean[...,None]
             return out.numpy()
@@ -239,14 +244,15 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
             print('Epoch {}'.format(epoch+1))
             sys.stdout.flush()
         
-        noise=torch.randn(X.shape,device=device)
-        means=torch.mean(X,dim=0)*0.02
+        noise=torch.randn(X.shape,device=device)[:,0:13]
+        means=(torch.mean(X,dim=0)*0.03)[0:13]
         noise=noise*means.repeat((len(noise[:,0]),1))
-        tX=X+noise
+        tX=X.clone()
+        tX[:,0:13]=tX[:,0:13]+noise
         if data_norm:
-            X_mean=torch.mean(tX,dim=0,keepdim=True)
-            X_std=torch.std(tX,dim=0,keepdim=True)
-            tX = torch.tensor((tX - X_mean) / X_std,dtype=torch.float,device=device)
+            X_mean=torch.mean(tX,dim=0,keepdim=True)[:,0:13]
+            X_std=torch.std(tX,dim=0,keepdim=True)[:,0:13]
+            tX[:,0:13] = torch.tensor((tX[:,0:13] - X_mean) / X_std,dtype=torch.float,device=device)
             tY = torch.tensor((y - y_mean) / y_std,dtype=torch.float,device=device)
         else:
             tX = torch.tensor(tX,dtype=torch.float,device=device)
