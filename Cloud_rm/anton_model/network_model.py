@@ -8,7 +8,7 @@ import torch.autograd as autograd
 import torch.nn as nn
 import torch.optim as optim
 
-from anton_model.utils import batches
+from multivariate_quantile_regression.utils import batches
 from functions.handy_functions import add_noise
 #from utils import create_folds, batches
 #from torch_utils import clip_gradient, logsumexp
@@ -50,7 +50,8 @@ class QuantileNetworkMM(nn.Module):
         self.eval()
         self.zero_grad()
         tX=torch.tensor(x,dtype=torch.float,device=self.device)
-        tX = (tX-self.tX_mean)/self.tX_std
+        #Normalize freq bands plus angle
+        tX[:,:13] = (tX[:,:13]-self.tX_mean)/self.tX_std
         norm_out = self.forward(tX)
         out = norm_out.data.cpu() * self.y_std[...,None] + self.y_mean[...,None]
         return out.data.cpu().numpy()
@@ -64,12 +65,13 @@ class QuantileNetwork():
         else:
             self.device=torch.device('cpu')
 
-    def fit(self, X, y, train_indices, validation_indices, batch_size, nepochs, sequence,lr=0.001,noise_ratio=0.03,early_break=False):
+    def fit(self, X, y, train_indices, validation_indices, sequence, batch_size=500, nepochs=1000,lr=0.001,noise_ratio=0.03,early_break=True,clear_noise=False,clear_indices=np.array([])):
         self.model,self.train_loss,self.val_loss = fit_quantiles(X, y, train_indices, validation_indices,
                                                                   quantiles=self.quantiles, batch_size=batch_size, 
                                                                   sequence=sequence, n_epochs=nepochs,
                                                                   device=self.device,lr=lr,noise_ratio=noise_ratio,
-                                                                  early_break=early_break)
+                                                                  early_break=early_break, clear_noise=clear_noise,
+                                                                  clear_indices=clear_indices)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -133,7 +135,7 @@ class QuantileNetwork():
 
         return loss/(np.shape(y_true)[0])
 
-def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,noise_ratio, early_break,
+def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_size,sequence,lr,noise_ratio, early_break, clear_noise, clear_indices,
                   loss='quantile',file_checkpoints=True,device=torch.device('cuda')):
     #Find variables for use in QuantileNetworkMM
     n_out=len(quantiles)
@@ -141,8 +143,8 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     y_std=y.std(axis=0, keepdims=True)
     #Turn inputs to tensors
     tX = torch.tensor(X,dtype=torch.float,device=device)
-    tX_mean = torch.mean(tX,0)
-    tX_std = torch.std(tX,0)
+    tX_mean = torch.mean(tX[:,:13],0)
+    tX_std = torch.std(tX[:,:13],0)
     tY = torch.tensor(y,dtype=torch.float,device=device)
     tquantiles = torch.tensor(quantiles,dtype=torch.float,device=device)
     #Normalize y
@@ -193,13 +195,20 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
         sys.stdout.flush()
 
 
-        #Add noise to tX
-        tX_noisy = tX + torch.randn(tX.shape) * torch.mean(tX,dim=0)*noise_ratio
+        #Add noise to tX, if clear_noise = False, do not add noise to clear data
+        if clear_noise:
+            tX_noise = torch.randn(tX[:,:13].shape) * torch.mean(tX[:,:13],dim=0)*noise_ratio
+        else:
+            tX_noise = torch.randn(tX[:,:13].shape) * torch.mean(tX[:,:13],dim=0)*noise_ratio
+            tX_noise[clear_indices,:]=0
+
+        tX_noisy = tX.clone()
+        tX_noisy[:,:13] = tX_noisy[:,:13] + tX_noise
 
         #Then normalize tX_noisy
-        tX_n_mean = torch.mean(tX_noisy,0)
-        tX_n_std = torch.std(tX_noisy,0)
-        tX_noisy = (tX_noisy-tX_n_mean)/tX_n_std
+        tX_n_mean = torch.mean(tX_noisy[:,:13],0)
+        tX_n_std = torch.std(tX_noisy[:,:13],0)
+        tX_noisy[:,:13] = (tX_noisy[:,:13]-tX_n_mean)/tX_n_std
 
         train_loss = torch.tensor([0],dtype=torch.float,device=device)
         
