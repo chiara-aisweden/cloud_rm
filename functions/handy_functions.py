@@ -50,4 +50,8 @@ def add_MSI_noise(df,x_labels):
 def dumb_down_surface(df):
 
     df['Surface_Desc_Dumb']=df['Surface_Desc'].str.split('-').str[0]
+    waterice=['water-tapwater-none','water-ice-none']
+    frostsnow=['water-frost-none','water-snow-finegranular','water-snow-mediumgranular', 'water-snow-coarsegranular']
+    df.loc[df['Surface_Desc'].isin(waterice),'Surface_Desc_Dumb']='water/ice'
+    df.loc[df['Surface_Desc'].isin(frostsnow),'Surface_Desc_Dumb']='frost/snow'
     return df
