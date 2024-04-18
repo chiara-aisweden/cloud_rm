@@ -50,8 +50,11 @@ class QuantileNetworkMM(nn.Module):
         self.eval()
         self.zero_grad()
         tX=torch.tensor(x,dtype=torch.float,device=self.device)
-        #Normalize freq bands plus angle
-        tX[:,:13] = (tX[:,:13]-self.tX_mean)/self.tX_std
+        #If dummy cot, inp feat = 16; Normalize freq bands plus angle (first 13)
+        if tX.shape[1] == 16:
+            tX[:,:13] = (tX[:,:13]-self.tX_mean)/self.tX_std
+        else: #Else normalize all
+            tX = (tX-self.tX_mean)/self.tX_std
         norm_out = self.forward(tX)
         out = norm_out.data.cpu() * self.y_std[...,None] + self.y_mean[...,None]
         return out.data.cpu().numpy()
@@ -143,8 +146,14 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     y_std=y.std(axis=0, keepdims=True)
     #Turn inputs to tensors
     tX = torch.tensor(X,dtype=torch.float,device=device)
-    tX_mean = torch.mean(tX[:,:13],0)
-    tX_std = torch.std(tX[:,:13],0)
+
+    if tX.shape[1] == 16:
+        tX_mean = torch.mean(tX[:,:13],0)
+        tX_std = torch.std(tX[:,:13],0)
+    else:
+        tX_mean = torch.mean(tX,0)
+        tX_std = torch.std(tX,0)
+
     tY = torch.tensor(y,dtype=torch.float,device=device)
     tquantiles = torch.tensor(quantiles,dtype=torch.float,device=device)
     #Normalize y
@@ -196,19 +205,36 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
 
 
         #Add noise to tX, if clear_noise = False, do not add noise to clear data
-        if clear_noise:
-            tX_noise = torch.randn(tX[:,:13].shape) * torch.mean(tX[:,:13],dim=0)*noise_ratio
-        else:
-            tX_noise = torch.randn(tX[:,:13].shape) * torch.mean(tX[:,:13],dim=0)*noise_ratio
-            tX_noise[clear_indices,:]=0
+        if tX.shape[1] == 16:
+            if clear_noise:
+                tX_noise = torch.randn(tX[:,:13].shape) * torch.mean(tX[:,:13],dim=0)*noise_ratio
+            else:
+                tX_noise = torch.randn(tX[:,:13].shape) * torch.mean(tX[:,:13],dim=0)*noise_ratio
+                tX_noise[clear_indices,:]=0
 
-        tX_noisy = tX.clone()
-        tX_noisy[:,:13] = tX_noisy[:,:13] + tX_noise
+            tX_noisy = tX.clone()
+            tX_noisy[:,:13] = tX_noisy[:,:13] + tX_noise
+        else:
+            if clear_noise:
+                tX_noise = torch.randn(tX.shape) * torch.mean(tX,dim=0)*noise_ratio
+            else:
+                tX_noise = torch.randn(tX.shape) * torch.mean(tX,dim=0)*noise_ratio
+                tX_noise[clear_indices,:]=0
+
+            tX_noisy = tX.clone()
+            tX_noisy = tX_noisy + tX_noise
+
+       
 
         #Then normalize tX_noisy
-        tX_n_mean = torch.mean(tX_noisy[:,:13],0)
-        tX_n_std = torch.std(tX_noisy[:,:13],0)
-        tX_noisy[:,:13] = (tX_noisy[:,:13]-tX_n_mean)/tX_n_std
+        if tX.shape[1]==16:
+            tX_n_mean = torch.mean(tX_noisy[:,:13],0)
+            tX_n_std = torch.std(tX_noisy[:,:13],0)
+            tX_noisy[:,:13] = (tX_noisy[:,:13]-tX_n_mean)/tX_n_std
+        else:
+            tX_n_mean = torch.mean(tX_noisy,0)
+            tX_n_std = torch.std(tX_noisy,0)
+            tX_noisy = (tX_noisy-tX_n_mean)/tX_n_std
 
         train_loss = torch.tensor([0],dtype=torch.float,device=device)
         
