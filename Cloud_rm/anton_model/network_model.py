@@ -52,7 +52,7 @@ class QuantileNetworkMM(nn.Module):
         tX=torch.tensor(x,dtype=torch.float,device=self.device)
         #If dummy cot, inp feat = 16; Normalize freq bands plus angle (first 13)
         if tX.shape[1] == 16:
-            tX[:,:13] = (tX[:,:13]-self.tX_mean)/self.tX_std
+            tX[:,:13] = (tX[:,:13]-self.tX_mean[:13])/self.tX_std[:13]
         else: #Else normalize all
             tX = (tX-self.tX_mean)/self.tX_std
         norm_out = self.forward(tX)
