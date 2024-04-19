@@ -52,7 +52,7 @@ class QuantileNetworkMM(nn.Module):
         tX=torch.tensor(x,dtype=torch.float,device=self.device)
         #If dummy cot, inp feat = 16; Normalize freq bands plus angle (first 13)
         if tX.shape[1] == 16:
-            tX[:,:13] = (tX[:,:13]-self.tX_mean)/self.tX_std
+            tX[:,:13] = (tX[:,:13]-self.tX_mean[:13])/self.tX_std[:13]
         else: #Else normalize all
             tX = (tX-self.tX_mean)/self.tX_std
         norm_out = self.forward(tX)
@@ -147,12 +147,8 @@ def fit_quantiles(X,y,train_indices,validation_indices,quantiles,n_epochs,batch_
     #Turn inputs to tensors
     tX = torch.tensor(X,dtype=torch.float,device=device)
 
-    if tX.shape[1] == 16:
-        tX_mean = torch.mean(tX[:,:13],0)
-        tX_std = torch.std(tX[:,:13],0)
-    else:
-        tX_mean = torch.mean(tX,0)
-        tX_std = torch.std(tX,0)
+    tX_mean = torch.mean(tX,0)
+    tX_std = torch.std(tX,0)
 
     tY = torch.tensor(y,dtype=torch.float,device=device)
     tquantiles = torch.tensor(quantiles,dtype=torch.float,device=device)
