@@ -78,3 +78,75 @@ def add_MSI_noise(df,x_labels):
         df[label]=col+noise
 
     return df
+
+def Sentinel2TrueColor(im_in):
+
+    '''
+    Function that takes [x,y,b] image array, where x is image height, y is image width and b is bands 2-12 of Sentinel 2 level 1c data,
+    utilizes red, green and blue bands (B04,B03,B02), compresses highlights and improves contrast and increases saturation to produce 
+    the color corrected RGB output.
+
+    Source: https://custom-scripts.sentinel-hub.com/sentinel-2/l1c_optimized/
+    '''
+
+    #Set constants
+    maxR = 3.0 # max reflectance
+    midR = 0.13
+    sat = 1.3
+    gamma = 2.3
+    ray = { 'r': 0.013, 'g': 0.024, 'b': 0.041}
+
+    gOff = 0.01
+    gOffPow = gOff**gamma
+    gOffRange = (1 + gOff)**gamma - gOffPow
+
+
+    adjGamma = lambda b : ((b + gOff)**gamma - gOffPow)/gOffRange
+
+    #Define functions
+    def adj(a,tx,ty,maxC):
+        ar = a/maxC
+        ar[ar>1]=1
+        ar[ar<0]=0
+        return ar*(ar*(tx/maxC + ty - 1)- ty)/(ar*(2*tx/maxC - 1) - tx / maxC)
+
+    def satEnh(r,g,b):
+        avgS = (r + g + b) / 3.0 * (1 - sat)
+        tmpr=avgS + r * sat
+        tmpr[tmpr>1]=1
+        tmpr[tmpr<0]=0
+        tmpg=avgS + g * sat
+        tmpg[tmpg>1]=1
+        tmpg[tmpg<0]=0
+        tmpb=avgS + b * sat
+        tmpb[tmpb>1]=1
+        tmpb[tmpb<0]=0
+        return [tmpr, tmpg, tmpb]
+
+
+    sAdj = lambda a: adjGamma(adj(a, midR, 1, maxR))
+    sRGB = lambda c: (12.92 * c) if c<= 0.0031308 else (1.055 * c**0.41666666666 - 0.055)
+
+    ## Get "True" RGB ##
+    b04Tp=sAdj(im_in[:,:,2]-ray['r'])
+    b03Tp=sAdj(im_in[:,:,1]-ray['g'])
+    b02Tp=sAdj(im_in[:,:,0]-ray['b'])
+
+    rgbLin=satEnh(b04Tp,b03Tp,b02Tp)
+    
+    for k,p in enumerate(rgbLin[0]):
+        for j,q in enumerate(p):
+            rgbLin[0][k,j]=sRGB(q)
+    for k,p in enumerate(rgbLin[1]):
+        for j,q in enumerate(p):
+            rgbLin[1][k,j]=sRGB(q)
+    for k,p in enumerate(rgbLin[2]):
+        for j,q in enumerate(p):
+            rgbLin[2][k,j]=sRGB(q)
+
+    im_show=np.zeros((np.shape(im_in)[0],np.shape(im_in)[1],3))
+    im_show[:,:,0]=rgbLin[0]
+    im_show[:,:,1]=rgbLin[1]
+    im_show[:,:,2]=rgbLin[2]
+
+    return im_show
