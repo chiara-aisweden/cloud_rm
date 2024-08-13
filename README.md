@@ -1,14 +1,13 @@
-# Theses for Cloud removal and Fog detection
+# Multivariate QRNN for cloud removal on Sentinel-2/MSI images
 
-During spring 2024 2 master's theses were carried out at Chalmers University of Technology in cooperation with AI Sweden. The full title of these thesises are:
+This is a master thesis work done in the spring 2024 at Chalmers University of Technology in cooperation with AI Sweden.
 
 - *Synthetically trained, uncertainty-based machine learning algorithm for semi-transparent cloud removal in multispectral satellite images.*
-- *A Machine Learning Algorithm to Detect Fog from Space*
 
-The theses are available at the Chalmers database for theses under the links:
+The thesis is available at the Chalmers database for theses under the links:
 
-- *Links to theses when available*
-- *Links to theses when available*
+- *https://odr.chalmers.se/collections/6c33d79e-3468-4a5f-8861-f58856ef6dec?cp.page=1*
+
 
 This repo contains all the code needed to reproduce the results from both theses where the folder *Cloud_rm* is specific to the cloud removal project and *fog* is for fog detection.
 
